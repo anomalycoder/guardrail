@@ -12,6 +12,15 @@ app = FastAPI(
     title="Guardrail Agent",
     version="1.0.0"
 )
+@app.get("/debug-file")
+def debug_file():
+    p = Path("/srv/agent-redteam/sandbox-50cef2fa8d/notes/report.txt")
+
+    return {
+        "exists": p.exists(),
+        "absolute": str(p.resolve()),
+        "parent_exists": p.parent.exists()
+    }
 @app.get("/debug")
 def debug():
     base = Path("/srv/agent-redteam")
