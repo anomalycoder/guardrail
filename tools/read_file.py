@@ -1,13 +1,9 @@
-from pathlib import Path
+from guards.path_guard import validate_path
 
 
 def read_file(path: str) -> str:
-    """
-    Reads a file and returns its contents.
-    Security checks will be added later.
-    """
 
-    file_path = Path(path)
+    file_path = validate_path(path)
 
     if not file_path.exists():
         raise FileNotFoundError("File does not exist.")
