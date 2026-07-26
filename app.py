@@ -6,7 +6,16 @@ from pydantic import BaseModel
 
 from tools.read_file import read_file
 from tools.fetch_url import fetch_url
+from pathlib import Path
 
+@app.get("/debug")
+def debug():
+    base = Path("/srv/agent-redteam")
+
+    return {
+        "base_exists": base.exists(),
+        "base_contents": [p.name for p in base.iterdir()] if base.exists() else []
+    }
 app = FastAPI(
     title="Guardrail Agent",
     version="1.0.0"
