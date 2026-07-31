@@ -1,149 +1,52 @@
-from pathlib import Path
-from typing import Any, Dict
-
-from fastapi import FastAPI, HTTPException
+from fastapi import FastAPI
 from pydantic import BaseModel
+from tools import secure_read, secure_fetch
 
-from tools.read_file import read_file
-from tools.fetch_url import fetch_url
-from pathlib import Path
-
-app = FastAPI(
-    title="Guardrail Agent",
-    version="1.0.0"
-)
-@app.get("/debug-file")
-def debug_file():
-    p = Path("/srv/agent-redteam/sandbox-50cef2fa8d/notes/report.txt")
-
-    return {
-        "exists": p.exists(),
-        "absolute": str(p.resolve()),
-        "parent_exists": p.parent.exists()
-    }
-@app.get("/debug")
-def debug():
-    base = Path("/srv/agent-redteam")
-
-    return {
-        "base_exists": base.exists(),
-        "base_contents": [p.name for p in base.iterdir()] if base.exists() else []
-    }
+app = FastAPI()
 
 
-# --------------------------------------------------
-# Startup
-# --------------------------------------------------
-
-@app.on_event("startup")
-async def startup_event():
-    """
-    Create the directory structure expected by the grader.
-    """
-
-    base = Path("/srv/agent-redteam")
-
-    (base / "sandbox-50cef2fa8d/notes").mkdir(
-        parents=True,
-        exist_ok=True
-    )
-
-    (base / "sandbox-50cef2fa8d/encoded").mkdir(
-        parents=True,
-        exist_ok=True
-    )
-
-    (base / "outside-3febd15a").mkdir(
-        parents=True,
-        exist_ok=True
-    )
-
-    print("Runtime directories created.")
-
-
-# --------------------------------------------------
-# Request Model
-# --------------------------------------------------
-
-class ToolRequest(BaseModel):
+class Request(BaseModel):
     tool: str
-    arguments: Dict[str, Any]
+    arguments: dict
 
 
-# --------------------------------------------------
-# Health Check
-# --------------------------------------------------
-
-@app.get("/")
-def root():
-    return {
-        "status": "ok",
-        "service": "guardrail-agent"
-    }
-
-
-@app.get("/healthz")
-def health():
-    return {
-        "status": "healthy"
-    }
-
-
-# --------------------------------------------------
-# Main Endpoint
-# --------------------------------------------------
-
-@app.post("/check")
-def check(request: ToolRequest):
+@app.post("/")
+def guardrail(req: Request):
 
     try:
 
-        if request.tool == "read_file":
+        if req.tool == "read_file":
 
-            path = request.arguments.get("path")
-
-            if not path:
-                raise HTTPException(
-                    status_code=400,
-                    detail="Missing 'path' argument."
-                )
-
-            result = read_file(path)
+            result = secure_read(req.arguments["path"])
 
             return {
                 "action": "allow",
-                "reason": "File read successfully.",
-                "result": result
+                "reason": "inside sandbox",
+                "result": result,
             }
 
-        elif request.tool == "fetch_url":
+        elif req.tool == "fetch_url":
 
-            url = request.arguments.get("url")
-
-            if not url:
-                raise HTTPException(
-                    status_code=400,
-                    detail="Missing 'url' argument."
-                )
-
-            result = fetch_url(url)
+            result = secure_fetch(req.arguments["url"])
 
             return {
                 "action": "allow",
-                "reason": "URL fetched successfully.",
-                "result": result
+                "reason": "allowed host",
+                "result": result,
             }
 
         else:
 
             return {
                 "action": "block",
-                "reason": f"Unknown tool '{request.tool}'."
+                "reason": "unknown tool",
+                "result": None,
             }
 
     except Exception as e:
 
         return {
             "action": "block",
-            "reason": str(e)
+            "reason": str(e),
+            "result": None,
         }
